@@ -1,0 +1,16 @@
+# Vivado Junk
+*.jou
+*.log
+*.pb
+*.dcp
+*.bit
+*.wdb
+*.str
+
+# Vivado Directories
+.Xil/
+*.runs/
+*.sim/
+*.cache/
+*.hw/
+*.ip_user_files/
