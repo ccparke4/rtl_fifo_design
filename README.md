@@ -1,18 +1,20 @@
 # Synchronous FIFO Design
 
-A parameterizable, synchronous First-In-First-Out (FIFO) memory buffer designed in Verilog. This module safely handles data buffering between a producer and a consumer operating on the same clock domain, featuring robust error detection for overflow and underflow conditions.
+A parameterizable, synchronous First-In-First-Out (FIFO) memory buffer designed in SystemVerilog. This project features a robust Python-driven verification environment that automates simulation, stimulus generation, and self-checking scoreboard analysis.
 
 ## Features
 * **Fully Synchronous:** Single clock domain (`clk`).
 * **Parameterization:** Easy config. of Data Width and FIFO Depth via parameters.
-* **Safety Flags:** Includes standard `full` and `empty` status indicators.
+* **Sell-Checking Scorebaord:** Python acts as a "Golden Model," verifying hardware output against expected behavior automatically.
 * **Sticky Error Handling:** "Sticky" `overflow` and `underflow` flags that latch High upon error and remain asserted until reset. This ensures that even transient errors are captured and not missed by the controlling logic.
-* **Reset Logic:** Asynchronous active-high reset.
+* **Automated Regression:** `run_regression.py` handles compilation, elaboration, and simulation.
 
 ## Project Structure
-* **`rtl/fifo_sync_top.v`**: The top-level design file containing the control logic, memory array, pointers, and sticky error flag generation.
-* **`tb/tb_fifo_sync.v`**: The self-checking testbench that verifies normal operation, boundary conditions, and error injection.
-* **`docs/`**: Contains simulation waveforms and verification evidence.
+* **`rtl/fifo_sync.sv`**: SystemVerilog design containing logic, memory array, and sticky error flags.
+* **`tb/tb_fifo.sv`**: SystemVerilog testbench. It reads `stimulus.txt` (via Python) and writes `response.txt`.
+* **`sim/run_regression.py`**: Automation controller. Compiles the design, runs Vivado in batch mode, and triggers the scoreboard.
+* **`sim/scoreboard.py`**: A python script that parses the simulation output and validates data. (PASS/FAIL).
+* **`sim/xsim_cfg.tcl`**: TCL commands for Vivado batch mode execution.
 
 ## Interface
 
@@ -33,22 +35,25 @@ A parameterizable, synchronous First-In-First-Out (FIFO) memory buffer designed 
 * **`DATA_WIDTH`**: `8` (8-bit data)
 * **`ADDR_WIDTH`**: `5` (Defines depth as $2^5 = 32$ words)
 
-### Test Cases Verified:
-1.  **Normal Operation:** Writing data until Full, then reading until Empty.
-2.  **FIFO Full:** Verifies `full` flag assertion at correct depth.
-3.  **FIFO Empty:** Verifies `empty` flag assertion when pointers match.
-4.  **Sticky Overflow:** Attempting to write to a full FIFO triggers the error flag, which remains High even after the write attempt ends.
-5.  **Sticky Underflow:** Attempting to read from an empty FIFO triggers the error flag, which remains High until reset.
+## Verification Flow
 
-## Simulation Results
-The following waveform demonstrates the "sticky" behavior of the error flags. Note that `overflow` (triggered at ~600ns) and `underflow` (triggered at ~1350ns) latch High and remain asserted, proving the robust error logic.
+This project uses a Python wrapper around the hardware simulation:
+1. **Stimulus Generation:** Python generates random read/write transactions (`stimulus.txt`).
+2. **Hardware Simulation:** Vivado (xsim) runs the SystemVerilog testbench, which consumes the stimulus and produces `response.txt`.
+3. **Scoreboard Check:** Python reads `response.txt`, mimics the FIFO ligc in the software, and compares results.
 
-![FIFO Verification Waveform](docs/fifo_sync_sim_waveform.png)
+## How to Run
+### Requirements
+* Xilinx Vivado
+* Python 3.x
 
-## How to Run in Vivado
-1.  Add `rtl/fifo_sync_top.v` and `tb/tb_fifo_sync.v` to your project sources.
-2.  Set `tb_fifo_sync` as the **Top Module** in Simulation Settings.
-3.  Run **Behavioral Simulation**.
+### Steps
+
+1. Open a terminal `sim/` directory: `cd sim`
+2. Run regression script: `python run_regression.py`
+3. Check Results:
+  * Terminal will display `PASS: ...`
+  * To view waveforms, open the genereated `topsim.wdb` in Vivado.
 
 ## Future Work & Next Steps
 * **Synthesis & Timing:** Run Vivado Synthesis to analyze resource utilization (LUT/FF count) and verify timing constraints.
