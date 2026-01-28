@@ -1,16 +1,32 @@
-# Vivado Junk
-*.jou
+# --- Vivado Simulation Artifacts ---
+xsim.dir/
+.Xil/
 *.log
+*.jou
 *.pb
+*.str
+*.backup.*
+*.vrb
+*.wdb
+*.exe
+
+# --- Compilation & Implementation ---
 *.dcp
 *.bit
-*.wdb
-*.str
+*.ltx
+*.gen/
 
-# Vivado Directories
-.Xil/
+# --- Vivado Project Directories ---
 *.runs/
 *.sim/
 *.cache/
 *.hw/
 *.ip_user_files/
+
+# --- Python Artifacts ---
+__pycache__/
+*.pyc
+*.txt
+
+# --- OS Junk ---
+.DS_Store
