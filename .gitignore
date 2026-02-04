@@ -22,11 +22,12 @@ xsim.dir/
 *.cache/
 *.hw/
 *.ip_user_files/
+FIFO/
 
 # --- Python Artifacts ---
 __pycache__/
 *.pyc
-*.txt
+
 
 # --- OS Junk ---
 .DS_Store

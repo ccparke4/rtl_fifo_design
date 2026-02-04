@@ -1,61 +1,154 @@
-# Synchronous FIFO Design
+# Hardware FIFO Design
 
-A parameterizable, synchronous First-In-First-Out (FIFO) memory buffer designed in SystemVerilog. This project features a robust Python-driven verification environment that automates simulation, stimulus generation, and self-checking scoreboard analysis.
+SystemVerilog implementations of synchronous and asynchronous FIFOs with automated verification infrastructure. Designed for FPGA deployment on Xilinx Artix-7.
 
-## Features
-* **Fully Synchronous:** Single clock domain (`clk`).
-* **Parameterization:** Easy config. of Data Width and FIFO Depth via parameters.
-* **Sell-Checking Scorebaord:** Python acts as a "Golden Model," verifying hardware output against expected behavior automatically.
-* **Sticky Error Handling:** "Sticky" `overflow` and `underflow` flags that latch High upon error and remain asserted until reset. This ensures that even transient errors are captured and not missed by the controlling logic.
-* **Automated Regression:** `run_regression.py` handles compilation, elaboration, and simulation.
+## Overview
+
+This project implements two FIFO architectures:
+
+| Feature | Sync FIFO | Async FIFO |
+|---------|-----------|------------|
+| Clock Domains | Single | Dual (CDC) |
+| Pointer Encoding | Binary | Gray Code |
+| Synchronization | None | 2-FF Synchronizers |
+| Use Case | Same-clock buffering | Cross-domain data transfer |
+
 
 ## Project Structure
-* **`rtl/fifo_sync.sv`**: SystemVerilog design containing logic, memory array, and sticky error flags.
-* **`tb/tb_fifo.sv`**: SystemVerilog testbench. It reads `stimulus.txt` (via Python) and writes `response.txt`.
-* **`sim/run_regression.py`**: Automation controller. Compiles the design, runs Vivado in batch mode, and triggers the scoreboard.
-* **`sim/scoreboard.py`**: A python script that parses the simulation output and validates data. (PASS/FAIL).
-* **`sim/xsim_cfg.tcl`**: TCL commands for Vivado batch mode execution.
+```
+HardwareFifoDesign/
+├── rtl/                    # Synthesizable RTL
+│   ├── fifo_sync.sv        # Synchronous FIFO
+│   └── fifo_async.sv       # Asynchronous FIFO with Gray code CDC
+├── tb/                     # Testbenches
+│   └── tb_fifo_unified.sv  # Unified testbench for both designs
+├── sim/                    # Verification infrastructure
+│   ├── run_compare.py      # Main automation script
+│   ├── scoreboard.py       # Golden model comparison
+│   ├── reporter.py         # Report generation
+│   ├── tcl/                # Vivado synthesis scripts
+│   └── tests/              # Stimulus generation
+├── output/                 # Generated reports
+│   ├── reports/
+│   └── schematics/
+├── docs/                   # Documentation images
+└── scripts/                # Utility scripts
+```
 
-## Interface
+## Quick Start
 
-| Port Name | Direction | Width | Description |
-| :--- | :--- | :--- | :--- |
-| `clk` | Input | 1-bit | System Clock. |
-| `rst` | Input | 1-bit | Active High Reset. Clears pointers and flags. |
-| `wr_en` | Input | 1-bit | Write Enable. Writes `data_in` on rising edge if not full. |
-| `rd_en` | Input | 1-bit | Read Enable. Reads to `data_out` on rising edge if not empty. |
-| `data_in` | Input | `[DATA_WIDTH-1:0]` | Data input bus. |
-| `data_out` | Output | `[DATA_WIDTH-1:0]` | Data output bus. |
-| `full` | Output | 1-bit | Asserted when FIFO memory is full. |
-| `empty` | Output | 1-bit | Asserted when FIFO memory is empty. |
-| `overflow` | Output | 1-bit | **Sticky Flag.** Goes High if a write is attempted while Full. |
-| `underflow`| Output | 1-bit | **Sticky Flag.** Goes High if a read is attempted while Empty. |
+### Prerequisites
 
-## ⚙️ Parameters (Default)
-* **`DATA_WIDTH`**: `8` (8-bit data)
-* **`ADDR_WIDTH`**: `5` (Defines depth as $2^5 = 32$ words)
+- Vivado 2025.2 (or compatible)
+- Python 3.8+
+- matplotlib (`pip install matplotlib`)
 
-## Verification Flow
+### Run Verification
+```bash
+cd sim
 
-This project uses a Python wrapper around the hardware simulation:
-1. **Stimulus Generation:** Python generates random read/write transactions (`stimulus.txt`).
-2. **Hardware Simulation:** Vivado (xsim) runs the SystemVerilog testbench, which consumes the stimulus and produces `response.txt`.
-3. **Scoreboard Check:** Python reads `response.txt`, mimics the FIFO ligc in the software, and compares results.
+# Full verification suite
+python run_compare.py
 
-## How to Run
-### Requirements
-* Xilinx Vivado
-* Python 3.x
+# With schematic generation
+python run_compare.py --schematic
 
-### Steps
+# Single design only
+python run_compare.py -d sync
+python run_compare.py -d async
 
-1. Open a terminal `sim/` directory: `cd sim`
-2. Run regression script: `python run_regression.py`
-3. Check Results:
-  * Terminal will display `PASS: ...`
-  * To view waveforms, open the genereated `topsim.wdb` in Vivado.
+# Open waveform viewer
+python run_compare.py -d sync --waveform
 
-## Future Work & Next Steps
-* **Synthesis & Timing:** Run Vivado Synthesis to analyze resource utilization (LUT/FF count) and verify timing constraints.
-* **Asynchronous Implementation:** Adapt the design to use Gray Code pointers for safe data transfer between different clock domains (CDC).
-* **AXI4-Stream Interface:** Wrap the core logic in an AXI wrapper for standard integration with Xilinx IP blocks (Zynq/MicroBlaze).
+# Interactive Vivado GUI
+python run_compare.py --synth-only --gui
+```
+
+### Command Line Options
+
+| Option | Description |
+|--------|-------------|
+| `--schematic`, `-s` | Generate schematic PDFs |
+| `--waveform`, `-w` | Open waveform viewer after simulation |
+| `--gui`, `-g` | Open Vivado GUI after synthesis |
+| `--design`, `-d` | Select design: `sync`, `async`, or `all` |
+| `--sim-only` | Run simulation only |
+| `--synth-only` | Run synthesis only |
+
+## Verification Results
+
+Both designs pass functional verification with 100 transactions (write bursts followed by read bursts).
+
+### Resource Utilization (Artix-7 xc7a35t)
+
+| Design | LUT Logic | LUT Memory | Flip-Flops | WNS (ns) | WHS (ns) |
+|--------|-----------|------------|------------|----------|----------|
+| Sync FIFO | 129 | 0 | 272 | 6.24 | 0.27 |
+| Async FIFO | 27 | 8 | 48 | 6.79 | 0.22 |
+
+![Usage Comparison](/output/reports/comparison_plot.png)
+
+## Design Details
+
+### Synchronous FIFO
+
+- **Architecture:** Counter-based full/empty decision
+- **Output:** First-Word Fall-Through (FWFT)
+- **Memory:** Infered as distributed RAM
+
+### Asynchronous FIFO
+
+- **Architecture:** Gray code pointers with 2-FF synchronizers
+- **CDC Safety:** Single-bit changes between clock domains
+- **Full Detection:** Compare write gray pointer with synchronized read pointer
+- **Empty Detection:** Compare read gray pointer with synchronized write pointer
+
+## Waveforms
+
+### Synchronous FIFO
+
+Shows basic FIFO operation with write burst followed by a read burst:
+
+![Sync FIFO Waveform](output/waveforms/sync_fifo_waveform.png)
+
+Observations:
+- `empty` deasserts after first write
+- `data_out` updates combinationally (FWFT)
+- Pointers increment on valid transactions
+
+### Asynchronous FIFO
+
+Shows CDC behavior
+
+![Async FIFO Waveform](output/waveforms/async_fifo_waveform.png)
+
+Observations:
+- `wclk` (100MHz) and `rclk` (40MHz) are independent
+- gray code pointers only change one bit at a time
+- synchronized pointers (`wq2_ptr`, `rq2_wptr`) lag
+
+### Gray Code Conversion
+```systemverilog
+// Binary 2 Gray
+assign gray_next = (bin_next >> 1) ^ bin_next;
+
+// Ex.
+// binary 3 (0011) -> gray 3 (0010)
+// binary 4 (0100) -> gray 4 (0110)
+```
+
+### Full Flag Detection (Gray Code)
+```systemverilog
+// full when MSB and MSB-1 differ, rest match
+assign wfull_val = (wgray_next == {~wq2_rptr[ADDR_WIDTH:ADDR_WIDTH-1],
+                                    wq2_rptr[ADDR_WIDTH-2:0]});
+```
+
+### 2-FF Synchronizer
+```systemverilog
+always_ff @(posedge rclk or negedge rrst_n) begin
+    if (~rrst_n) {rq2_wptr, rq1_wptr} <= '0;
+    else         {rq2_wptr, rq1_wptr} <= {rq1_wptr, wptr};
+end
+```
+
