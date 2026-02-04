@@ -2,7 +2,7 @@
 
 module async_fifo #(
     parameter int DATA_WIDTH = 8,
-    parameter int ADDR_WIDTH = 4
+    parameter int ADDR_WIDTH = 5
 ) (
     // write domain - source
     input   logic                   wclk,       // Fast clock
@@ -62,15 +62,15 @@ module async_fifo #(
     // move read ptr -> into write domain
     logic [ADDR_WIDTH:0] wq1_rptr;
     always_ff @(posedge wclk or negedge wrst_n) begin
-        if (!wrst_n) {wq2_rptr, wq1_rptr} <= `0;
+        if (!wrst_n) {wq2_rptr, wq1_rptr} <= '0;
         else         {wq2_rptr, wq1_rptr} <= {wq1_rptr, rptr};
     end 
 
     // move write pointer -> into read domain
     logic [ADDR_WIDTH:0] rq1_wptr;
     always_ff @(posedge rclk or negedge rrst_n) begin
-        if (!rrst_n) {rq2_wptr, rq1_wptr} <= `0;
-        else         {rq2_wptr, rq1_wptr} <= {rq1_wptr, rptr};
+        if (!rrst_n) {rq2_wptr, rq1_wptr} <= '0;
+        else         {rq2_wptr, rq1_wptr} <= {rq1_wptr, wptr};
     end
 
     // write domain logic ------------------------------------------------------
@@ -87,8 +87,8 @@ module async_fifo #(
 
     always_ff@(posedge wclk or negedge wrst_n) begin
         if (!wrst_n) begin
-            wbin <= `0;
-            wptr <= `0;
+            wbin <= '0;
+            wptr <= '0;
         end else begin
             wbin <= wbin_next;
             wptr <= wgray_next;
@@ -121,8 +121,8 @@ module async_fifo #(
 
     always_ff @(posedge rclk or negedge rrst_n) begin
         if (!rrst_n) begin
-            rbin <= `0;
-            rptr <= `0;
+            rbin <= '0;
+            rptr <= '0;
         end else begin
             rbin <= rbin_next;
             rptr <= rgray_next;
@@ -140,3 +140,5 @@ module async_fifo #(
         if (!rrst_n) rempty <= 1'b1;    // default to empty on reset
         else         rempty <= rempty_val;
     end
+
+endmodule

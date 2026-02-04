@@ -5,15 +5,13 @@ module fifo_sync_top #(
     parameter int ADDR_WIDTH = 5
 )(
     input  logic clk,
-    input  logic rst,
+    input  logic rst_n,
     input  logic wr_en,
     input  logic rd_en,
     input  logic [DATA_WIDTH-1:0] data_in,
     output logic [DATA_WIDTH-1:0] data_out,
     output logic full,
-    output logic empty,
-    output logic overflow,
-    output logic underflow
+    output logic empty
 );
     
     localparam int DEPTH = 1 << ADDR_WIDTH;
@@ -27,38 +25,34 @@ module fifo_sync_top #(
     assign empty = (count == 0);
     assign full  = (count == DEPTH);
 
+    // FWFT: cominational read output
+    assign data_out = mem[rd_ptr];
+
     // sequential logic: pointer and mem
-    always_ff @(posedge clk or posedge rst) begin
-        if (rst) begin
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
             wr_ptr    <= '0;
             rd_ptr    <= '0;
             count     <= 1'b0;
-            overflow   <= 1'b0;
-            underflow <= 1'b0;
         end else begin
             // Write Logic
             if (wr_en && !full) begin
                 mem[wr_ptr] <= data_in;
                 wr_ptr      <= wr_ptr + 1'b1;
-            end else if (wr_en && full) begin
-                overflow <= 1'b1;   // sticky, stays high
-            end
+            end 
 
             // read logic
             if (rd_en && !empty) begin
-                data_out <= mem[rd_ptr];
-                rd_ptr   <= rd_ptr + 1;
-            end else if (rd_en && empty) begin
-                underflow <= 1'b1;
+                rd_ptr   <= rd_ptr + 1'b1;
             end
 
             // counter logic
-            if (wr_en && !full && !(rd_en && !empty)) 
-                count <= count + 1'b1;
-            else if (rd_en && !empty && !(wr_en && !full))
-                count <= count - 1'b1;
+            case ({ (wr_en && !full), (rd_en && !empty) }) 
+                2'b10: count <= count + 1'b1;   // write only
+                2'b01: count <= count - 1'b1;   // read only
+                default: count <= count;
+            endcase
         end
-
     end
     
  endmodule
